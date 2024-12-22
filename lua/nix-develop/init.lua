@@ -119,9 +119,10 @@ end
 ---Enter a development environment
 ---@param cmd string
 ---@param args string[]
+---@param callback function
 ---@return nil
----@usage `require("nix-develop").enter_dev_env("nix", {"print-dev-env", "--json"})`
-function M.enter_dev_env(cmd, args)
+---@usage `require("nix-develop").enter_dev_env("nix", {"print-dev-env", "--json"}, callback)`
+function M.enter_dev_env(cmd, args, callback)
   local opts = { output = "", stdout = loop.new_pipe() }
 
   loop.spawn(cmd, {
@@ -152,6 +153,7 @@ function M.enter_dev_env(cmd, args)
       end
     end
     notify("successfully entered development environment", levels.INFO)
+    callback()
   end)
 
   read_stdout(opts)
@@ -159,23 +161,25 @@ end
 
 ---Enter a development environment a la `nix develop`
 ---@param args string[] Extra arguments to pass to `nix print-dev-env`
+---@param callback function
 ---@return nil
----@usage `require("nix-develop").nix_develop({".#foo", "--impure"})`
-function M.nix_develop(args)
+---@usage `require("nix-develop").nix_develop({".#foo", "--impure"}, callback)`
+function M.nix_develop(args, callback)
   M.enter_dev_env("nix", {
     "print-dev-env",
     "--extra-experimental-features",
     "nix-command flakes",
     "--json",
     unpack(args),
-  })
+  }, callback)
 end
 
 ---Enter a development environment a la `nix shell`
 ---@param args string[] Extra arguments to pass to `nix build`
+---@param callback function
 ---@return nil
----@usage `require("nix-develop").nix_shell({"nixpkgs#hello"})`
-function M.nix_shell(args)
+---@usage `require("nix-develop").nix_shell({"nixpkgs#hello"}, callback)`
+function M.nix_shell(args, callback)
   local args = {
     "build",
     "--extra-experimental-features",
@@ -214,6 +218,7 @@ function M.nix_shell(args)
 
     loop.os_setenv("PATH", path)
     notify("successfully entered development environment", levels.INFO)
+    callback()
   end)
 
   read_stdout(opts)
@@ -221,14 +226,15 @@ end
 
 ---Enter a development environment a la `riff shell`
 ---@param args string[] Extra arguments to pass to `riff print-dev-env`
+---@param callback function
 ---@return nil
----@usage `require("nix-develop").riff_shell({"--project-dir", "foo"})`
-function M.riff_shell(args)
+---@usage `require("nix-develop").riff_shell({"--project-dir", "foo"}, callback)`
+function M.riff_shell(args, callback)
   M.enter_dev_env("riff", {
     "print-dev-env",
     "--json",
     unpack(args),
-  })
+  }, callback)
 end
 
 return M
