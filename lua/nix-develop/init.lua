@@ -153,7 +153,7 @@ function M.enter_dev_env(cmd, args, callback)
       end
     end
     notify("successfully entered development environment", levels.INFO)
-    callback()
+    vim.schedule(callback)
   end)
 
   read_stdout(opts)
@@ -218,7 +218,7 @@ function M.nix_shell(args, callback)
 
     loop.os_setenv("PATH", path)
     notify("successfully entered development environment", levels.INFO)
-    callback()
+    vim.schedule(callback)
   end)
 
   read_stdout(opts)
