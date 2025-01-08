@@ -58,6 +58,9 @@ M.ignored_variables = {
 M.separated_variables = {
     PATH = ':',
     XDG_DATA_DIRS = ':',
+    buildInputs = ' ',
+    nativeBuildInputs = ' ',
+    propagatedBuildInputs = ' ',
 };
 
 local function check(cmd, args, code, signal)
@@ -176,6 +179,56 @@ end;
 ---@usage `require("nix-develop").nix_develop({".#foo", "--impure"}, callback)`
 function M.nix_develop(args, callback)
     M.enter_dev_env('nix', {
+        'print-dev-env',
+        '--extra-experimental-features',
+        'nix-command flakes',
+        '--json',
+        unpack(args),
+    }, callback);
+end;
+
+---Extend a development environment with a new one
+---@param cmd string
+---@param args string[]
+---@param callback function|nil
+---@return nil
+---@usage `require("nix-develop").extend_dev_env("nix", {"print-dev-env", "--json"}, callback)`
+function M.extend_dev_env(cmd, args, callback)
+    local opts = { output = '', stdout = loop.new_pipe() };
+
+    loop.spawn(cmd, {
+        args = args,
+        stdio = { nil, opts.stdout, nil },
+    }, function(code, signal)
+        if check(cmd, args, code, signal) then
+            return;
+        end;
+
+        for name, value in pairs(vim.json.decode(opts.output)['variables']) do
+            if value.type == 'exported' then
+                if string.find(name, 'uildInputs') ~= nil or string.find(name, 'PATH') ~= nil then
+                    setenv(name, value.value);
+                end;
+            end;
+        end;
+
+        notify('successfully extended development environment', levels.INFO);
+
+        if callback ~= nil then
+            vim.schedule(callback);
+        end;
+    end);
+
+    read_stdout(opts);
+end;
+
+---Extend a development environment a la `nix develop`
+---@param args string[] Extra arguments to pass to `nix print-dev-env`
+---@param callback function|nil
+---@return nil
+---@usage `require("nix-develop").nix_develop_extend({".#foo", "--impure"}, callback)`
+function M.nix_develop_extend(args, callback)
+    M.extend_dev_env('nix', {
         'print-dev-env',
         '--extra-experimental-features',
         'nix-command flakes',
