@@ -18,7 +18,7 @@
 local M = {};
 
 local levels = vim.log.levels;
-local loop = vim.loop;
+local loop = vim.uv;
 
 -- workaround for "nvim_echo must not be called in a lua loop callback"
 local notify = function(msg, level)
@@ -95,7 +95,8 @@ local function setenv(name, value)
 
     local sep = M.separated_variables[name];
     if sep then
-        local path = loop.os_getenv(name);
+        local path = loop.os_getenv(name, 23);
+
         if path then
             loop.os_setenv(name, value .. sep .. path);
             return;
@@ -110,6 +111,7 @@ local function read_stdout(opts)
         if err then
             notify('Error when reading stdout: ' .. err, levels.WARN);
         end;
+
         if chunk then
             opts.output = opts.output .. chunk;
         end;
@@ -136,22 +138,27 @@ function M.enter_dev_env(cmd, args, callback)
         for name, value in pairs(vim.json.decode(opts.output)['variables']) do
             if value.type == 'exported' then
                 setenv(name, value.value);
+
                 if name == 'shellHook' then
                     local stdin = loop.new_pipe();
+
                     loop.spawn('bash', {
                         stdio = { stdin, nil, nil },
-                    }, function(code, signal)
-                        if code ~= 0 then
+                    }, function(_code, _signal)
+                        if _code ~= 0 then
                             notify('shellHook failed with exit code %d', levels.WARN);
                         end;
-                        if signal ~= 0 then
+
+                        if _signal ~= 0 then
                             notify('shellHook interrupted with signal %d', levels.WARN);
                         end;
                     end);
+
                     stdin:write(value.value);
                 end;
             end;
         end;
+
         notify('successfully entered development environment', levels.INFO);
 
         if callback ~= nil then
@@ -178,18 +185,18 @@ function M.nix_develop(args, callback)
 end;
 
 ---Enter a development environment a la `nix shell`
----@param args string[] Extra arguments to pass to `nix build`
+---@param _args string[] Extra arguments to pass to `nix build`
 ---@param callback function|nil
 ---@return nil
 ---@usage `require("nix-develop").nix_shell({"nixpkgs#hello"}, callback)`
-function M.nix_shell(args, callback)
+function M.nix_shell(_args, callback)
     local args = {
         'build',
         '--extra-experimental-features',
         'nix-command flakes',
         '--print-out-paths',
         '--no-link',
-        unpack(args),
+        unpack(_args),
     };
     local opts = { output = '', stdout = loop.new_pipe() };
 
@@ -201,17 +208,19 @@ function M.nix_shell(args, callback)
             return;
         end;
 
-        local path = loop.os_getenv('PATH');
+        local path = loop.os_getenv('PATH', 23);
         local outs = vim.split(opts.output, '\n', { trimempty = true });
 
         while true do
             local out = table.remove(outs, 1);
+
             if not out then
                 break;
             end;
 
             path = out .. '/bin:' .. path;
             local file = io.open(out .. '/nix-support/propagated-user-env-packages');
+
             if file then
                 for line in file:lines() do
                     table.insert(outs, vim.trim(line));
@@ -219,9 +228,15 @@ function M.nix_shell(args, callback)
             end;
         end;
 
-        loop.os_setenv('PATH', path);
+        if path ~= nil then
+            loop.os_setenv('PATH', path);
+        end;
+
         notify('successfully entered development environment', levels.INFO);
-        vim.schedule(callback);
+
+        if callback ~= nil then
+            vim.schedule(callback);
+        end;
     end);
 
     read_stdout(opts);
