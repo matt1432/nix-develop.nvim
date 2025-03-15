@@ -128,6 +128,8 @@ end;
 ---@return nil
 ---@usage `require("nix-develop").enter_dev_env("nix", {"print-dev-env", "--json"}, callback)`
 function M.enter_dev_env(cmd, args, callback)
+    notify('entering development environment', levels.INFO);
+
     local opts = { output = '', stdout = loop.new_pipe() };
 
     loop.spawn(cmd, {
@@ -194,6 +196,8 @@ end;
 ---@return nil
 ---@usage `require("nix-develop").extend_dev_env("nix", {"print-dev-env", "--json"}, callback)`
 function M.extend_dev_env(cmd, args, callback)
+    notify('extending development environment', levels.INFO);
+
     local opts = { output = '', stdout = loop.new_pipe() };
 
     loop.spawn(cmd, {
@@ -243,6 +247,8 @@ end;
 ---@return nil
 ---@usage `require("nix-develop").nix_shell({"nixpkgs#hello"}, callback)`
 function M.nix_shell(_args, callback)
+    notify('entering development environment', levels.INFO);
+
     local args = {
         'build',
         '--extra-experimental-features',
