@@ -98,7 +98,7 @@ local function setenv(name, value)
 
     local sep = M.separated_variables[name];
     if sep then
-        local path = loop.os_getenv(name, 23);
+        local path = os.getenv(name);
 
         if path then
             loop.os_setenv(name, value .. sep .. path);
@@ -267,7 +267,7 @@ function M.nix_shell(_args, callback)
             return;
         end;
 
-        local path = loop.os_getenv('PATH', 23);
+        local path = os.getenv('PATH');
         local outs = vim.split(opts.output, '\n', { trimempty = true });
 
         while true do
